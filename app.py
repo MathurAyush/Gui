@@ -5,20 +5,20 @@ import base64
 
 st.set_page_config(layout="wide")
 
-# ✅ Your background image path
-file_path = "/home/arc/Desktop/background.webp"  
+# ✅ Use a relative path
+file_path = "background.jpg"  # Since the image is inside the same folder as app.py
 
 def set_background(file_path):
     with open(file_path, "rb") as image_file:
         encoded_string = base64.b64encode(image_file.read()).decode()
 
     bg_style = f"""
-        <style>
-        .stApp {{
-            background: url("data:image/webp;base64,{encoded_string}") no-repeat center center fixed;
-            background-size: cover;
-        }}
-        </style>
+    <style>
+    .stApp {{
+        background: url("data:image/jpg;base64,{encoded_string}") no-repeat center center fixed;
+        background-size: cover;
+    }}
+    </style>
     """
     st.markdown(bg_style, unsafe_allow_html=True)
 
@@ -26,144 +26,134 @@ def set_background(file_path):
 set_background(file_path)
 
 if "page" not in st.session_state:
-    st.session_state.page = "start"
+    st.session_state.page = "welcome"
 
-if st.session_state.page == "start":
-    # Create empty columns to push content to the right
-    col1, col2 = st.columns([2, 1])  # Adjust ratio to shift more
-
-    with col2:  # Place the title and button in the right column
-        st.title("Welcome to Transformer Losses Analyzer")
-        if st.button("Let's Start Analyzing"):
-            st.session_state.page = "analyze"
-            st.rerun()
-
-
-elif st.session_state.page == "analyze":
-    st.title("Transformer Losses Analyzer & Efficiency Calculator")
-
-    col1, col2 = st.columns(2)
-
+if st.session_state.page == "welcome":
+    st.title("Welcome to Transformers GUI")
+    col1, col2 = st.columns([1, 1])
+    
     with col1:
-        st.header("Input Parameters")
-        primary_voltage = st.number_input("Enter Primary Voltage (V)", min_value=1.0, step=1.0)
-        secondary_voltage = st.number_input("Enter Secondary Voltage (V)", min_value=1.0, step=1.0)
-        power = st.number_input("Enter Rated Power (kVA)", min_value=1.0, step=1.0)
-        frequency = st.number_input("Enter Frequency (Hz)", min_value=1.0, step=1.0)
-        resistance = st.number_input("Enter Winding Resistance (Ω)", min_value=0.1, step=0.1)
-        core_type = st.selectbox("Select Core Type", ["CRGO", "Ferrite", "Amorphous", "Nano-crystalline"])
-        core_size = st.number_input("Enter Core Size (cm²)", min_value=1.0, step=0.1)
-        temperature = st.number_input("Enter Operating Temperature (°C)", min_value=-50.0, max_value=200.0, step=1.0)
-        load_levels = st.slider("Select Load Levels (%)", min_value=0, max_value=100, step=5)
-
+        if st.button("Let's Start"):
+            st.session_state.page = "input_graph"
+            st.rerun()
+    
     with col2:
-        st.header("Output Visualization")
-        chart_placeholder = st.empty()
+        if st.button("Developed by"):
+            st.info("Developed by: Ayush, Rudra, Prashant, and Dinesh")
+else:
+    if "graph_index" not in st.session_state:
+        st.session_state.graph_index = 0
+    if "show_graph" not in st.session_state:
+        st.session_state.show_graph = False
 
-    if st.button("Calculate & Plot"):
-        if primary_voltage > 0 and secondary_voltage > 0 and power > 0 and frequency > 0 and resistance > 0:
-            x_data = np.linspace(0, power, 50)
-            iron_loss = (0.01 * x_data**1.2) + (0.005 * primary_voltage) + (0.002 * frequency) + (0.0001 * core_size)
-            copper_loss = (resistance * (x_data / power)**2) * power
-            stray_loss = (0.0005 * x_data * core_size) + (0.0002 * temperature)
-            dielectric_loss = (0.0001 * x_data * frequency) + (0.00005 * temperature)
-            total_loss = iron_loss + copper_loss + stray_loss + dielectric_loss
-            efficiency = (x_data / (x_data + total_loss)) * 100
+    graphs = [
+        "Iron Core Loss vs Voltage/Frequency", 
+        "Copper Loss vs Load", 
+        "Stray & Dielectric Loss vs Temperature", 
+        "Efficiency vs Load"]
 
-            y_max = max(max(total_loss), max(efficiency)) * 1.2
-            x_max = power * 1.2
+    st.title("Transformer Losses Analysis")
 
-            fig = go.Figure()
+    # User Inputs
+    st.sidebar.header("Input Parameters")
+    primary_voltage = st.sidebar.number_input("Primary Voltage (V)", min_value=1.0, step=1.0)
+    secondary_voltage = st.sidebar.number_input("Secondary Voltage (V)", min_value=1.0, step=1.0)
+    power = st.sidebar.number_input("Rated Power (kVA)", min_value=1.0, step=1.0)
+    frequency = st.sidebar.number_input("Frequency (Hz)", min_value=1.0, step=1.0)
+    core_type = st.sidebar.selectbox("Core Type", ["CRGO", "Ferrite", "Amorphous", "Nano-crystalline"])
+    winding_resistance = st.sidebar.number_input("Winding Resistance (Ω)", min_value=0.1, step=0.1)
+    load_levels = st.sidebar.slider("Load Levels (%)", min_value=0, max_value=100, step=5)
+    temperature = st.sidebar.slider("Operating Temperature (°C)", min_value=-50, max_value=200, step=5)
 
-            fig.add_trace(go.Scatter(x=[], y=[], mode="lines", name="Iron Loss", 
-                                     line=dict(color="orangered", width=5)))
-            fig.add_trace(go.Scatter(x=[], y=[], mode="lines", name="Copper Loss", 
-                                     line=dict(color="dodgerblue", width=5)))
-            fig.add_trace(go.Scatter(x=[], y=[], mode="lines", name="Stray Loss", 
-                                     line=dict(color="purple", width=5)))
-            fig.add_trace(go.Scatter(x=[], y=[], mode="lines", name="Dielectric Loss", 
-                                     line=dict(color="cyan", width=5)))
-            fig.add_trace(go.Scatter(x=[], y=[], mode="lines", name="Efficiency (%)", 
-                                     line=dict(color="limegreen", width=5)))
+    if st.sidebar.button("Generate Graphs"):
+        st.session_state.show_graph = True
+        st.rerun()
 
-            frames = []
-            step_size = max(1, len(x_data) // 30)
+    if st.session_state.show_graph:
+        st.header(graphs[st.session_state.graph_index])
 
-            for i in range(1, len(x_data) + 1, step_size):
-                frames.append(
-                    go.Frame(
-                        data=[
-                            go.Scatter(x=x_data[:i], y=iron_loss[:i], mode="lines", name="Iron Loss", 
-                                       line=dict(color="orangered", width=5)),
-                            go.Scatter(x=x_data[:i], y=copper_loss[:i], mode="lines", name="Copper Loss", 
-                                       line=dict(color="dodgerblue", width=5)),
-                            go.Scatter(x=x_data[:i], y=stray_loss[:i], mode="lines", name="Stray Loss", 
-                                       line=dict(color="purple", width=5)),
-                            go.Scatter(x=x_data[:i], y=dielectric_loss[:i], mode="lines", name="Dielectric Loss", 
-                                       line=dict(color="cyan", width=5)),
-                            go.Scatter(x=x_data[:i], y=efficiency[:i], mode="lines", name="Efficiency (%)", 
-                                       line=dict(color="limegreen", width=5))
-                        ]
-                    )
-                )
+        fig = go.Figure()
+        x_values = np.linspace(0, 100, 50)
 
-            fig.frames = frames if frames else [go.Frame(data=[])]
+        if st.session_state.graph_index == 0:
+            y_values = (0.05 * x_values**1.5) + (0.01 * primary_voltage) + (0.005 * frequency)
+            y_values = -((0.01 * x_values**1.2) + (0.005 * primary_voltage) + (0.002 * frequency))
+            fig.add_trace(go.Scatter(x=x_values, y=y_values, mode="lines", name="Iron Core Loss", line=dict(color="orangered")))
+            fig.update_layout(title="Iron Core Loss vs Voltage/Frequency", xaxis_title="Voltage (V) / Frequency (Hz)", yaxis_title="Iron Loss (W)")
 
-            fig.update_layout(
-                title=dict(
-                    text="Transformer Losses & Efficiency",
-                    font=dict(color="white", size=18)
-                ),
-                xaxis=dict(
-                    title="Load (kVA)",
-                    title_font=dict(color="white", size=14),
-                    tickfont=dict(color="white", size=12),
-                    showgrid=True, gridcolor="lightgray",
-                    range=[0, x_max]
-                ),
-                yaxis=dict(
-                    title="Losses (W) / Efficiency (%)",
-                    title_font=dict(color="white", size=14),
-                    tickfont=dict(color="white", size=12),
-                    showgrid=True, gridcolor="lightgray",
-                    range=[0, y_max]
-                ),
-                plot_bgcolor="dark gray",
-                paper_bgcolor="dark gray",
-                font=dict(color="white"),
-                width=950,
-                height=600,
-                legend=dict(
-                    font=dict(color="white", size=12),
-                    bgcolor="dark gray",
-                    bordercolor="white",
-                    borderwidth=1
-                ),
-                updatemenus=[{
-                    "buttons": [
-                        {
-                            "args": [None, {"frame": {"duration": 20, "redraw": True}, "fromcurrent": True}],
-                            "label": "Play",
-                            "method": "animate"
-                        },
-                        {
-                            "args": [[None], {"frame": {"duration": 0, "redraw": True}, "mode": "immediate"}],
-                            "label": "Pause",
-                            "method": "animate"
-                        }
-                    ],
-                    "direction": "left",
-                    "pad": {"r": 10, "t": 87},
-                    "showactive": False,
-                    "type": "buttons",
-                    "x": 0.1,
-                    "xanchor": "right",
-                    "y": 0,
-                    "yanchor": "top"
-                }]
-            )
+        elif st.session_state.graph_index == 1:
+            y_values = (winding_resistance * (x_values / 100)**2.5) * power
+            y_values = (winding_resistance * (x_values / 100)**2) * power + 5 * np.sin(x_values / 10)
+            fig.add_trace(go.Scatter(x=x_values, y=y_values, mode="lines", name="Copper Loss", line=dict(color="dodgerblue")))
+            fig.update_layout(title="Copper Loss vs Load", xaxis_title="Load (%)", yaxis_title="Copper Loss (W)")
 
-            chart_placeholder.plotly_chart(fig, use_container_width=True)
+        elif st.session_state.graph_index == 2:
+            y_stray_loss = (0.001 * x_values**1.2 * power) + (0.0003 * frequency) + 2 * np.cos(x_values / 15)
+            y_dielectric_loss = (0.0002 * x_values**1.5 * frequency) + (0.0001 * power) - 1.5 * np.sin(x_values / 20)
+            fig.add_trace(go.Scatter(x=x_values, y=y_stray_loss, mode="lines", name="Stray Loss", line=dict(color="purple")))
+            fig.add_trace(go.Scatter(x=x_values, y=y_dielectric_loss, mode="lines", name="Dielectric Loss", line=dict(color="cyan")))
+            fig.update_layout(title="Stray & Dielectric Loss vs Temperature", xaxis_title="Temperature (°C)", yaxis_title="Loss (W)")
+            y_values = [y_stray_loss, y_dielectric_loss]  # For multiple traces
+        
+        elif st.session_state.graph_index == 3:
+            core_efficiency_factor = {"CRGO": 0.98, "Ferrite": 0.95, "Amorphous": 0.99, "Nano-crystalline": 0.995}
+            efficiency_factor = core_efficiency_factor.get(core_type, 0.97)
+            total_loss = (0.01 * x_values**1.2) + (winding_resistance * (x_values / 100)**2) * power + (0.0005 * x_values * power) + (0.0002 * frequency)
+            y_values = (efficiency_factor * x_values / (x_values + total_loss)) * 100 + 3 * np.cos(x_values / 10)
+            y_values = (efficiency_factor * x_values / (x_values + total_loss)) * 100 - 0.05 * x_values**1.3
+            fig.add_trace(go.Scatter(x=x_values, y=y_values, mode="lines", name=f"Efficiency ({core_type})", line=dict(color="limegreen")))
+            fig.update_layout(title=f"Efficiency vs Load ({core_type})", xaxis_title="Load (%)", yaxis_title="Efficiency (%)")
 
-        else:
-            st.error("Please enter valid input values.")
+        # Create frames for animation
+        frames = []
+        if st.session_state.graph_index == 2:  # For graphs with multiple traces
+            for i in range(1, len(x_values)):
+                frames.append(go.Frame(
+                    data=[
+                        go.Scatter(x=x_values[:i], y=y_stray_loss[:i], mode="lines", name="Stray Loss"),
+                        go.Scatter(x=x_values[:i], y=y_dielectric_loss[:i], mode="lines", name="Dielectric Loss")
+                    ]
+                ))
+        else:  # For graphs with a single trace
+            for i in range(1, len(x_values)):
+                frames.append(go.Frame(
+                    data=[go.Scatter(x=x_values[:i], y=y_values[:i], mode="lines")]
+                ))
+
+        fig.frames = frames
+
+        # Add animation controls
+        fig.update_layout(
+            updatemenus=[{
+                "type": "buttons",
+                "buttons": [
+                    {
+                        "args": [None, {"frame": {"duration": 100, "redraw": True}, "fromcurrent": True}],
+                        "label": "Play",
+                        "method": "animate"
+                    },
+                    {
+                        "args": [[None], {"frame": {"duration": 0, "redraw": True}, "mode": "immediate", "transition": {"duration": 0}}],
+                        "label": "Pause",
+                        "method": "animate"
+                    }
+                ],
+                "direction": "left",
+                "pad": {"r": 10, "t": 87},
+                "showactive": False,
+                "type": "buttons",
+                "x": 0.1,
+                "xanchor": "right",
+                "y": 0,
+                "yanchor": "top"
+            }]
+        )
+
+        st.plotly_chart(fig, use_container_width=True)
+
+        col1, col2, col3 = st.columns([1, 1, 1])
+
+        with col2:
+            if st.button("Next Graph"):
+                st.session_state.graph_index = (st.session_state.graph_index + 1) % len(graphs)
+                st.rerun()
